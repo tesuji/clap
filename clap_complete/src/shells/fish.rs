@@ -88,7 +88,8 @@ fn gen_fish_inner(
 
     debug!("gen_fish_inner: parent_commands={parent_commands:?}");
 
-    for option in cmd.get_opts() {
+    let flags = cmd.get_arguments().filter(|a| !a.is_positional());
+    for option in flags {
         let mut template = basic_template.clone();
 
         if let Some(shorts) = option.get_short_and_visible_aliases() {
@@ -107,29 +108,12 @@ fn gen_fish_inner(
             template.push_str(&format!(" -d '{}'", escape_help(data)));
         }
 
-        template.push_str(value_completion(option).as_str());
-
-        buffer.push_str(template.as_str());
-        buffer.push('\n');
-    }
-
-    for flag in utils::flags(cmd) {
-        let mut template = basic_template.clone();
-
-        if let Some(shorts) = flag.get_short_and_visible_aliases() {
-            for short in shorts {
-                template.push_str(format!(" -s {short}").as_str());
-            }
-        }
-
-        if let Some(longs) = flag.get_long_and_visible_aliases() {
-            for long in longs {
-                template.push_str(format!(" -l {}", escape_string(long, false)).as_str());
-            }
-        }
-
-        if let Some(data) = flag.get_help() {
-            template.push_str(&format!(" -d '{}'", escape_help(data)));
+        let is_options = option
+            .get_num_args()
+            .map(|range| range.takes_values())
+            .unwrap_or(false);
+        if is_options {
+            template.push_str(value_completion(option).as_str());
         }
 
         buffer.push_str(template.as_str());
