@@ -1,6 +1,7 @@
 complete -c my-app -n "__fish_use_subcommand" -s c -s C -l config -l conf -d 'some config file'
 complete -c my-app -n "__fish_use_subcommand" -s h -l help -d 'Print help'
 complete -c my-app -n "__fish_use_subcommand" -s V -l version -d 'Print version'
+complete -c my-app -n "__fish_use_subcommand" -r -f -a "{first\t'',second\t''}"
 complete -c my-app -n "__fish_use_subcommand" -a "test" -d 'tests things'
 complete -c my-app -n "__fish_use_subcommand" -a "some_cmd" -d 'top level subcommand'
 complete -c my-app -n "__fish_use_subcommand" -a "some_cmd_alias" -d 'top level subcommand'

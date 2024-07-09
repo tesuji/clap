@@ -5,8 +5,6 @@ use clap::{builder, Arg, Command, ValueHint};
 use crate::generator::{utils, Generator};
 
 /// Generate fish completion file
-///
-/// Note: The fish generator currently only supports named options (-o/--option), not positional arguments.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub struct Fish;
 
@@ -136,7 +134,17 @@ fn gen_fish_inner(
         buffer.push('\n');
     }
 
-    let has_positionals = cmd.get_positionals().next().is_some();
+    let mut has_positionals = false;
+    for arg in cmd.get_positionals() {
+        has_positionals = true;
+        if let Some(completion) = possible_value_completion(arg) {
+            let mut template = basic_template.clone();
+            template.push_str(&completion);
+            buffer.push_str(template.as_str());
+            buffer.push('\n');
+        }
+    }
+
     if !has_positionals {
         basic_template.push_str(" -f");
     }
@@ -165,31 +173,39 @@ fn gen_fish_inner(
     }
 }
 
+fn possible_value_completion(option: &Arg) -> Option<String> {
+    let Some(data) = utils::possible_values(option) else {
+        return None;
+    };
+    // We return the possible values with their own empty description e.g. {a\t,b\t}
+    // this makes sure that a and b don't get the description of the option or argument
+    let completion = format!(
+        " -r -f -a \"{{{}}}\"",
+        data.iter()
+            .filter_map(|value| if value.is_hide_set() {
+                None
+            } else {
+                // The help text after \t is wrapped in '' to make sure that the it is taken literally
+                // and there is no command substitution or variable expansion resulting in unexpected errors
+                Some(format!(
+                    "{}\\t'{}'",
+                    escape_string(value.get_name(), true).as_str(),
+                    escape_help(value.get_help().unwrap_or_default())
+                ))
+            })
+            .collect::<Vec<_>>()
+            .join(",")
+    );
+    Some(completion)
+}
+
 fn value_completion(option: &Arg) -> String {
     if !option.get_num_args().expect("built").takes_values() {
         return "".to_string();
     }
 
-    if let Some(data) = utils::possible_values(option) {
-        // We return the possible values with their own empty description e.g. {a\t,b\t}
-        // this makes sure that a and b don't get the description of the option or argument
-        format!(
-            " -r -f -a \"{{{}}}\"",
-            data.iter()
-                .filter_map(|value| if value.is_hide_set() {
-                    None
-                } else {
-                    // The help text after \t is wrapped in '' to make sure that the it is taken literally
-                    // and there is no command substitution or variable expansion resulting in unexpected errors
-                    Some(format!(
-                        "{}\\t'{}'",
-                        escape_string(value.get_name(), true).as_str(),
-                        escape_help(value.get_help().unwrap_or_default())
-                    ))
-                })
-                .collect::<Vec<_>>()
-                .join(",")
-        )
+    if let Some(completion) = possible_value_completion(option) {
+        completion
     } else {
         // NB! If you change this, please also update the table in `ValueHint` documentation.
         match option.get_value_hint() {
